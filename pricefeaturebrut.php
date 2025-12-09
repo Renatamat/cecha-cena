@@ -45,7 +45,8 @@ class PriceFeatureBrut extends Module
     {
         return parent::install()
             && $this->registerHook('actionObjectProductAddAfter')
-            && $this->registerHook('actionObjectProductUpdateAfter');
+            && $this->registerHook('actionObjectProductUpdateAfter')
+            && $this->registerHook('actionGetProductPropertiesAfter');
     }
 
     public function uninstall()
@@ -61,6 +62,15 @@ class PriceFeatureBrut extends Module
     public function hookActionObjectProductUpdateAfter($params)
     {
         $this->handleProductHook($params);
+    }
+
+    public function hookActionGetProductPropertiesAfter(array &$params)
+    {
+        if (!isset($params['product']) || !is_array($params['product'])) {
+            return;
+        }
+
+        $params['product'] = $this->removeFeatureFromProductData($params['product']);
     }
 
     /**
@@ -156,5 +166,21 @@ class PriceFeatureBrut extends Module
         }
 
         return (int) self::FALLBACK_FEATURE_VALUE;
+    }
+
+    private function removeFeatureFromProductData(array $product): array
+    {
+        $product['features'] = array_values(array_filter(
+            $product['features'] ?? [],
+            static function ($feature) {
+                return !isset($feature['id_feature']) || (int) $feature['id_feature'] !== self::FEATURE_ID;
+            }
+        ));
+
+        if (isset($product['feature_values']) && is_array($product['feature_values'])) {
+            unset($product['feature_values'][self::FEATURE_ID]);
+        }
+
+        return $product;
     }
 }
